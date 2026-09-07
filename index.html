@@ -121,15 +121,22 @@
     낱개로 외우지 않아도 돼요. 이 5개만 잡으면 한꺼번에 정리돼요!<br>
     <b>개념 카드 1장 → 그 개념 문제 2개</b>, 이렇게 15번 반복해요.<br>
     틀린 문제가 있으면 <b>왜 틀렸는지 설명 → 오답 클리닉 문제</b>가 이어서 나와요.<br>
-    답을 고르면 <b>정답 문장을 영어로 읽어 줘요.</b> 소리 내어 따라 말해 보세요!<br>
+    답을 고르면 <b>정답 문장을 영어 소리로 들려줘요.</b> 소리 내어 따라 말해 보세요!<br>
     한 영역이 끝나면 결과를 복사해서 지나티처에게 카톡으로 보내주세요.<br>
     푼 기록은 자동 저장되니 중간에 꺼져도 이어서 할 수 있어요.</p>
     <label class="lbl" for="name-input">이름</label>
     <input type="text" id="name-input" placeholder="이름을 입력하세요" maxlength="20" autocomplete="off">
     <div class="soundrow">
       <input type="checkbox" id="sound-on" checked>
-      <label for="sound-on">정답 영어를 소리로 듣기<span class="note">답을 고르면 다음 문제로 넘어가기 전에 정답 문장을 읽어 줘요. 소리를 켜 주세요!</span></label>
+      <label for="sound-on">정답 영어를 소리로 듣기<span class="note">답을 고르면 다음 문제로 넘어가기 전에 정답 문장을 원어민 소리로 들려줘요.</span></label>
     </div>
+    <button class="btn sub-btn center" id="sound-test" style="margin-top:9px">소리 테스트 — 눌러서 영어가 들리는지 확인해요</button>
+    <p class="keyhint" id="sound-msg" style="margin-top:9px; min-height:18px"></p>
+    <p class="keyhint" style="margin-top:4px; line-height:1.7; color:#b5762f">
+      카톡에서 바로 열면 소리가 안 날 수 있어요.<br>
+      소리가 안 들리면 화면 <b>오른쪽 위 점 세 개</b>를 눌러<br>
+      <b>‘다른 브라우저로 열기’</b>(크롬 · 사파리)를 선택해 주세요.
+    </p>
     <p class="sub" id="sec-pick-hint" style="margin:18px 0 -2px">아래에서 시작할 영역을 골라 주세요 (1영역부터 순서대로 푸는 걸 추천해요)</p>
     <button class="btn sec-start" data-sec="0" disabled>1영역 시작 · isn't / aren't 만들기 <span class="cnt">카드 3장 · 6문항</span></button>
     <button class="btn sec-start" data-sec="1" disabled>2영역 시작 · 주어에 맞는 be동사 고르기 <span class="cnt">카드 3장 · 6문항</span></button>
@@ -808,6 +815,59 @@ function speakAnswer(text, onDone) {
   } catch (e) { setTimeout(finish, 700); }
 }
 
+/* ══════════ 정답 음원 재생 (카톡 인앱 브라우저에서도 나오도록 파일 재생) ══════════ */
+function pad2(n) { return (n < 10 ? "0" : "") + n; }
+
+var AUDIO_EL = null;
+function getAudioEl() {
+  if (!AUDIO_EL) {
+    AUDIO_EL = new Audio();
+    AUDIO_EL.preload = "auto";
+  }
+  return AUDIO_EL;
+}
+function stopAudio() {
+  try { if (AUDIO_EL) { AUDIO_EL.pause(); AUDIO_EL.onended = null; AUDIO_EL.onerror = null; AUDIO_EL.onplaying = null; } } catch (e) {}
+}
+
+/* 정답 음원을 들려준 뒤 onDone 실행.
+   1순위 음원 파일 → 2순위 브라우저 읽기(TTS) → 3순위 그냥 넘어가기 */
+function playAnswer(file, text, onDone) {
+  var done = false;
+  function finish() {
+    if (done) return;
+    done = true;
+    stopAudio();
+    hideSayBar();
+    onDone();
+  }
+  if (!soundOn || !text) { setTimeout(finish, 250); return; }
+  showSayBar(text);
+
+  var usedFallback = false;
+  function fallback() {
+    if (done || usedFallback) return;
+    usedFallback = true;
+    stopAudio();
+    speakAnswer(text, finish);
+  }
+
+  var a = getAudioEl();
+  var startGuard = setTimeout(fallback, 2600);
+  try {
+    a.onplaying = function () { clearTimeout(startGuard); };
+    a.onended = function () { clearTimeout(startGuard); setTimeout(finish, 350); };
+    a.onerror = function () { clearTimeout(startGuard); fallback(); };
+    a.src = "audio/" + file + ".wav?v=1";
+    a.currentTime = 0;
+    var p = a.play();
+    if (p && p.catch) { p.catch(function () { clearTimeout(startGuard); fallback(); }); }
+  } catch (e) { clearTimeout(startGuard); fallback(); }
+
+  /* 어떤 경우에도 화면이 멈추지 않게 하는 최종 안전장치 */
+  setTimeout(finish, Math.min(13000, 4000 + text.length * 95));
+}
+
 /* ══════════ 진행 상태 ══════════ */
 var studentName = "";
 var current = 0;
@@ -848,6 +908,7 @@ var ALL_CARDS = ["start-card", "resume-card", "cards-card", "quiz-card", "sec-re
                  "clinic-why-card", "clinic-card", "clinic-result-card"];
 function show(id) {
   stopSpeaking();
+  stopAudio();
   ALL_CARDS.forEach(function (c) {
     document.getElementById(c).classList.toggle("hidden", c !== id);
   });
@@ -917,6 +978,43 @@ if (soundBox) {
     soundOn = soundBox.checked;
     try { localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off"); } catch (e) {}
     if (!soundOn) stopSpeaking();
+  });
+}
+var testBtn = document.getElementById("sound-test");
+var soundMsg = document.getElementById("sound-msg");
+function setMsg(txt, color) {
+  if (!soundMsg) return;
+  soundMsg.textContent = txt;
+  soundMsg.style.color = color;
+}
+if (testBtn) {
+  testBtn.addEventListener("click", function () {
+    warmUpVoice();
+    setMsg("소리를 내는 중이에요...", "#6B7B7E");
+    var a = getAudioEl();
+    var started = false;
+    a.onplaying = function () {
+      started = true;
+      setMsg("소리가 나오고 있어요! 안 들리면 휴대폰 볼륨을 올려 주세요.", "#2F7C83");
+    };
+    a.onended = function () {
+      if (started) setMsg("소리 확인 완료! 이제 시작해도 좋아요.", "#2F7C83");
+    };
+    a.onerror = function () {
+      setMsg("소리 파일을 못 불러왔어요. 아래 안내대로 다른 브라우저로 열어 주세요.", "#b5762f");
+    };
+    try {
+      a.src = "audio/test.wav?v=1";
+      a.currentTime = 0;
+      var p = a.play();
+      if (p && p.catch) {
+        p.catch(function () {
+          setMsg("브라우저가 소리를 막았어요. 아래 안내대로 다른 브라우저로 열어 주세요.", "#b5762f");
+        });
+      }
+    } catch (e) {
+      setMsg("소리를 재생할 수 없어요. 아래 안내대로 다른 브라우저로 열어 주세요.", "#b5762f");
+    }
   });
 }
 function syncNameGate() {
@@ -1104,9 +1202,10 @@ function pick(choice) {
   var ok = (q.t === "ord") ? (ordNorm(choice) === ordNorm(q.answer)) : (choice === q.answer);
   answersLog[current] = { no: current + 1, ok: ok, chosen: choice, answer: q.answer };
   elapsed[si] += Math.min(180, Math.round((Date.now() - lastTick) / 1000));
+  var qi = current;
   current++;
   saveState();
-  speakAnswer(q.say, function () {
+  playAnswer("q" + pad2(qi + 1), q.say, function () {
     locked = false;
     if (current === SECTIONS[si].end) showSectionResult(si);
     else step();
@@ -1298,7 +1397,7 @@ function clinicAnswer(choice) {
   var ok = (cq.t === "ord") ? (ordNorm(choice) === ordNorm(cq.answer)) : (choice === cq.answer);
   clinicLog.push({ no: idx + 1, ok: ok, chosen: choice, answer: cq.answer });
   clinicPos++;
-  speakAnswer(cq.say, function () {
+  playAnswer("c" + pad2(idx + 1), cq.say, function () {
     locked = false;
     if (clinicPos >= clinicList.length) showClinicResult();
     else showWhy();
