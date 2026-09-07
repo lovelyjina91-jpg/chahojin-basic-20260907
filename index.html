@@ -89,6 +89,14 @@
   .ord-tile.picked { background: #2F7C83; color: #fff; border-color: #2F7C83; }
   .ord-help { font-size: 0.82rem; color: #6B7B7E; line-height: 1.75; margin-bottom: 10px; }
 
+  .saybar { position: fixed; left: 0; right: 0; bottom: 0; background: #235E64; color: #fff; padding: 13px 16px; display: flex; align-items: center; gap: 11px; justify-content: center; z-index: 60; box-shadow: 0 -2px 14px rgba(0,0,0,0.2); }
+  .saybar .ico { flex: none; width: 24px; height: 24px; }
+  .saybar .lbl { display: block; font-size: 0.75rem; opacity: 0.85; letter-spacing: 0.3px; }
+  .saybar .txt { display: block; font-size: 1.02rem; font-weight: bold; line-height: 1.5; word-break: keep-all; overflow-wrap: normal; }
+  .soundrow { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; padding: 12px 13px; background: #E6F1F1; border-radius: 10px; }
+  .soundrow input { width: 19px; height: 19px; margin-top: 2px; flex: none; accent-color: #2F7C83; }
+  .soundrow label { font-size: 0.88rem; font-weight: bold; color: #235E64; cursor: pointer; line-height: 1.6; }
+  .soundrow label .note { display: block; font-size: 0.8rem; color: #6B7B7E; font-weight: normal; margin-top: 2px; }
   .footer { text-align: center; font-size: 0.78rem; color: #9aa8a5; padding: 8px 0 26px; line-height: 1.8; }
   .hidden { display: none; }
 </style>
@@ -113,10 +121,15 @@
     낱개로 외우지 않아도 돼요. 이 5개만 잡으면 한꺼번에 정리돼요!<br>
     <b>개념 카드 1장 → 그 개념 문제 2개</b>, 이렇게 15번 반복해요.<br>
     틀린 문제가 있으면 <b>왜 틀렸는지 설명 → 오답 클리닉 문제</b>가 이어서 나와요.<br>
+    답을 고르면 <b>정답 문장을 영어로 읽어 줘요.</b> 소리 내어 따라 말해 보세요!<br>
     한 영역이 끝나면 결과를 복사해서 지나티처에게 카톡으로 보내주세요.<br>
     푼 기록은 자동 저장되니 중간에 꺼져도 이어서 할 수 있어요.</p>
     <label class="lbl" for="name-input">이름</label>
     <input type="text" id="name-input" placeholder="이름을 입력하세요" maxlength="20" autocomplete="off">
+    <div class="soundrow">
+      <input type="checkbox" id="sound-on" checked>
+      <label for="sound-on">정답 영어를 소리로 듣기<span class="note">답을 고르면 다음 문제로 넘어가기 전에 정답 문장을 읽어 줘요. 소리를 켜 주세요!</span></label>
+    </div>
     <p class="sub" id="sec-pick-hint" style="margin:18px 0 -2px">아래에서 시작할 영역을 골라 주세요 (1영역부터 순서대로 푸는 걸 추천해요)</p>
     <button class="btn sec-start" data-sec="0" disabled>1영역 시작 · isn't / aren't 만들기 <span class="cnt">카드 3장 · 6문항</span></button>
     <button class="btn sec-start" data-sec="1" disabled>2영역 시작 · 주어에 맞는 be동사 고르기 <span class="cnt">카드 3장 · 6문항</span></button>
@@ -269,6 +282,15 @@
       <p class="sub" style="margin-bottom:10px">클리닉 해설</p>
       <div id="cr-explanations"></div>
     </div>
+  </div>
+
+  <div class="saybar hidden" id="saybar">
+    <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#fff"></polygon>
+      <path d="M15.5 8.6a4.6 4.6 0 0 1 0 6.8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"></path>
+      <path d="M18.6 5.6a9 9 0 0 1 0 12.8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"></path>
+    </svg>
+    <div><span class="lbl">정답 듣기</span><span class="txt" id="saytext"></span></div>
   </div>
 
   <div class="footer">
@@ -566,6 +588,77 @@ var CLINIC = [
 {"q":"우리말에 맞게 <b>바르게</b> 쓴 문장은?<br><b>그녀는 의사이다.</b>","choices":["She is a doctor.","She is a boter.","She is a docter.","She is doctor."],"answer":"She is a doctor.","exp":"정답은 <b class='en'>She is a doctor.</b><br>· 의사는 <b>doctor</b> — <b>d</b>로 시작하고 <b>-tor</b>로 끝나요. doc + tor!<br>· boter는 b와 d가 바뀌었어요. 오른손 엄지가 <b>d</b>!<br>· docter는 끝이 -ter가 되었어요. doc<b>tor</b>예요.<br>· 'She is doctor'는 <b>a</b>가 빠졌어요. 직업 앞에는 a가 필요해요.<br>· 지난 시험 <b>41번</b>에서 나왔어요. 그리고 <b>49번 · 108번</b>에서는 <b>She is a doctor.</b>를 정확하게 썼답니다!"}
 ];
 
+
+/* ══════════ 정답 영어 읽어 주기 — 문항별 읽을 문장 ══════════ */
+var SAY_ALL = [
+"The room isn't clean.",
+"We aren't angry.",
+"The house isn't big.",
+"They aren't my friends.",
+"I am not thirsty.",
+"I am not hungry.",
+"My dog is cute.",
+"We are in the library.",
+"Peter and Sam are in the classroom.",
+"My sister and I are tall.",
+"The buildings are old.",
+"Lemons aren't sweet.",
+"She's smart.",
+"He's my dad.",
+"They're in my bag.",
+"You're my best friend.",
+"I'm in my room.",
+"It's a famous movie.",
+"She is not a singer.",
+"They aren't in the classroom.",
+"The cap isn't mine.",
+"The room isn't clean.",
+"These candies are sweet.",
+"The pencils are on the desk.",
+"It is a panda.",
+"It isn't my smart phone.",
+"He is my dad.",
+"My dog is cute.",
+"I am in the library.",
+"We aren't angry."
+];
+var SAY_CLINIC = [
+"The cap isn't mine.",
+"They aren't in the classroom.",
+"The book isn't on the desk.",
+"These shoes aren't wet.",
+"I am not hungry.",
+"I am not a dancer.",
+"This is my pen.",
+"They are tall.",
+"Peter and Jenny are my friends.",
+"Jenny and I aren't busy.",
+"Pencils are on the desk.",
+"These stories aren't funny.",
+"She's a doctor.",
+"He's a doctor.",
+"They're at the bank.",
+"You're kind.",
+"I'm in the library.",
+"It's my room.",
+"He is not a soccer player.",
+"We aren't in the library.",
+"The book isn't on the desk.",
+"The house isn't big.",
+"This computer is new.",
+"The book isn't on the table.",
+"It is a famous movie.",
+"It is a panda.",
+"He is my friend.",
+"My dog is cute.",
+"They aren't in the classroom.",
+"She is a doctor."
+];
+(function attachSay() {
+  ALL.forEach(function (q, i) { q.say = SAY_ALL[i] || ""; });
+  CLINIC.forEach(function (q, i) { q.say = SAY_CLINIC[i] || ""; });
+})();
+
 /* ══════════ 영역 · 카드 배치 ══════════ */
 var SECTIONS = [
   { name: "1영역 · isn't / aren't 만들기",        start: 0,  end: 6,  cards: [A1, A2, A3] },
@@ -643,6 +736,78 @@ function prepareList(list, from, to) {
   });
 })();
 
+/* ══════════ 정답 영어 소리로 듣기 ══════════ */
+var SOUND_KEY = "engfit-sound-on";
+var soundOn = true;
+try { soundOn = localStorage.getItem(SOUND_KEY) !== "off"; } catch (e) {}
+
+var EN_VOICE = null;
+function pickVoice() {
+  try {
+    var vs = window.speechSynthesis.getVoices() || [];
+    var en = vs.filter(function (v) { return /^en/i.test(v.lang || ""); });
+    EN_VOICE = en.filter(function (v) { return /en[-_]US/i.test(v.lang || ""); })[0] || en[0] || null;
+  } catch (e) {}
+}
+if (window.speechSynthesis) {
+  pickVoice();
+  try { window.speechSynthesis.onvoiceschanged = pickVoice; } catch (e) {}
+}
+
+/* iOS 등에서 첫 소리가 나오도록, 시작 버튼을 누를 때 미리 한 번 깨워 둔다 */
+var _voiceWarmed = false;
+function warmUpVoice() {
+  if (_voiceWarmed || !window.speechSynthesis) return;
+  _voiceWarmed = true;
+  try {
+    var u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0; u.lang = "en-US";
+    window.speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+function showSayBar(text) {
+  var t = document.getElementById("saytext");
+  if (t) t.textContent = text;
+  var bar = document.getElementById("saybar");
+  if (bar) bar.classList.remove("hidden");
+}
+function hideSayBar() {
+  var bar = document.getElementById("saybar");
+  if (bar) bar.classList.add("hidden");
+}
+function stopSpeaking() {
+  try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+  hideSayBar();
+}
+
+/* 정답 영어를 읽어 준 뒤 onDone 실행.
+   소리가 꺼져 있거나 브라우저가 지원하지 않으면 기다리지 않고 바로 넘어간다. */
+function speakAnswer(text, onDone) {
+  var done = false;
+  function finish() {
+    if (done) return;
+    done = true;
+    hideSayBar();
+    onDone();
+  }
+  if (!soundOn || !text || !window.speechSynthesis) { setTimeout(finish, 250); return; }
+  showSayBar(text);
+  try {
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    if (EN_VOICE) u.voice = EN_VOICE;
+    u.rate = 0.82;
+    u.pitch = 1;
+    u.onend = function () { setTimeout(finish, 400); };
+    u.onerror = finish;
+    window.speechSynthesis.speak(u);
+    /* 소리가 끝나지 않는 환경에서도 멈추지 않도록 하는 안전장치 */
+    setTimeout(finish, Math.min(11000, 2400 + text.length * 95));
+  } catch (e) { setTimeout(finish, 700); }
+}
+
 /* ══════════ 진행 상태 ══════════ */
 var studentName = "";
 var current = 0;
@@ -682,6 +847,7 @@ function clearState() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} 
 var ALL_CARDS = ["start-card", "resume-card", "cards-card", "quiz-card", "sec-result-card",
                  "clinic-why-card", "clinic-card", "clinic-result-card"];
 function show(id) {
+  stopSpeaking();
   ALL_CARDS.forEach(function (c) {
     document.getElementById(c).classList.toggle("hidden", c !== id);
   });
@@ -744,6 +910,15 @@ document.getElementById("card-skip").addEventListener("click", afterCard);
 /* ══════════ 시작 / 이어하기 ══════════ */
 var nameInput = document.getElementById("name-input");
 var secBtns = [].slice.call(document.querySelectorAll(".sec-start"));
+var soundBox = document.getElementById("sound-on");
+if (soundBox) {
+  soundBox.checked = soundOn;
+  soundBox.addEventListener("change", function () {
+    soundOn = soundBox.checked;
+    try { localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off"); } catch (e) {}
+    if (!soundOn) stopSpeaking();
+  });
+}
 function syncNameGate() {
   var ok = nameInput.value.trim().length > 0;
   secBtns.forEach(function (b) { b.disabled = !ok; });
@@ -756,6 +931,7 @@ function startSection(si) {
   var typed = nameInput.value.trim();
   if (!typed) { nameInput.focus(); return; }
   studentName = typed;
+  warmUpVoice();
   var s = SECTIONS[si];
   for (var i = s.start; i < s.end; i++) { answersLog[i] = null; }
   elapsed[si] = 0;
@@ -930,11 +1106,11 @@ function pick(choice) {
   elapsed[si] += Math.min(180, Math.round((Date.now() - lastTick) / 1000));
   current++;
   saveState();
-  setTimeout(function () {
+  speakAnswer(q.say, function () {
     locked = false;
     if (current === SECTIONS[si].end) showSectionResult(si);
     else step();
-  }, 250);
+  });
 }
 
 /* ══════════ 공통 도구 ══════════ */
@@ -1122,11 +1298,11 @@ function clinicAnswer(choice) {
   var ok = (cq.t === "ord") ? (ordNorm(choice) === ordNorm(cq.answer)) : (choice === cq.answer);
   clinicLog.push({ no: idx + 1, ok: ok, chosen: choice, answer: cq.answer });
   clinicPos++;
-  setTimeout(function () {
+  speakAnswer(cq.say, function () {
     locked = false;
     if (clinicPos >= clinicList.length) showClinicResult();
     else showWhy();
-  }, 250);
+  });
 }
 function showClinicResult() {
   MODE = "quiz";
